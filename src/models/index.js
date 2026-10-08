@@ -51,6 +51,29 @@ TechnologyModel.belongsToMany(ProjectModel, {
   as: "projects",
   onDelete: "CASCADE",
 });
+
+ProjectModel.hasMany(ProjectTechnologyModel, {
+  foreignKey: "project_id",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+ProjectTechnologyModel.belongsTo(ProjectModel, {
+  foreignKey: "project_id",
+  onDelete: "CASCADE",
+});
+
+
+TechnologyModel.hasMany(ProjectTechnologyModel, {
+  foreignKey: "technology_id",
+  onDelete: "CASCADE",
+  hooks: true,
+});
+
+ProjectTechnologyModel.belongsTo(TechnologyModel, {
+  foreignKey: "technology_id",
+  onDelete: "CASCADE",
+});
 export {
   UserModel,
   ProfileModel,
