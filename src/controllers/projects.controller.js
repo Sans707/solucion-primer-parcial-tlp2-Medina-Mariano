@@ -1,201 +1,86 @@
 // * ARCHIVO A COMPLETAR
-import {
-  ProjectModel,
-  ProjectTechnologyModel,
-  TechnologyModel,
-  UserModel,
-} from "../models/index.js";
+import { UniqueConstraintError } from "sequelize";
+import { sequelize } from "../config/db.js";
+import { UserModel, ProfileModel } from "../models/index.js";
+import { hashPassword, comparePassword } from "../helpers/bcrypt.helper.js";
+import { signToken } from "../helpers/jwt.helper.js";
 
-export const createProject = async (req, res) => {
+export const register = async (req, res) => {
   try {
-    // TODO: 1. Crear el project con los datos del body que ya pasaron la validación.
-    // ? Revisar de dónde debe salir el leader del proyecto.
-    // TODO: 2. Asociar al project las technologies recibidas.
-    // TODO: 3. Responder con código 201 y el project con sus technologies y su leader.
-        const {
-          code,
-          name,
-          description,
-          status,
-          start_date,
-          budget,
-          leader_id,
-          technologies,
-        } = req.body;
-    
-        const project = await ProjectModel.create({
-          code,
-          name,
-          description,
-          status,
-          start_date,
-          budget,
-          leader_id,
-        });
-    
-        if (technologies && technologies.length > 0) {
-          await ProjectTechnologyModel.bulkCreate(
-            technologies.map((technology_id) => ({
-              project_id: project.id,
-              technology_id,
-            }))
-          );
-        }
-    
-        const projectCreated = await ProjectModel.findByPk(project.id, {
-          include: [
-            {
-              model: UserModel,
-              as: "leader",
-              attributes: {
-                exclude: ["password"],
-              },
-            },
-            {
-              model: TechnologyModel,
-              as: "technologies",
-              through: {
-                attributes: [],
-              },
-            },
-          ],
-        });
-    
-        return res.status(201).json(projectCreated);
-      } catch (error) {
-        console.log(error);
-        return res.status(500).json({ msg: "Error interno del servidor" });
-      }
-    
-};
+    // TODO: 1. Hashear la password antes de guardarla (hashPassword).
+    const { username, email, password, role = "developer", profile } = req.body;
+    const hashedPassword = await hashPassword(password);
 
-export const getAllProjects = async (_req, res) => {
-  try {
-    // TODO: 1. Listar todos los projects incluyendo su leader (sin la password) y sus technologies, y responder con código 200 y los projects..
-      const projects = await ProjectModel.findAll({
-        include: [
-          {
-            model: UserModel,
-            as: "leader",
-            attributes: {
-              exclude: ["password"],
-            },
-          },
-          {
-            model: TechnologyModel,
-            as: "technologies",
-            through: {
-              attributes: [],
-            },
-          },
-        ],
-      });
-  
-      return res.status(200).json(projects);
-    } catch (error) {
-      console.log(error);
-      return res.status(500).json({ msg: "Error interno del servidor" });
-    }
-};
+    // TODO: 2. Crear el user y su profile asociado.
+    const user = await sequelize.transaction(async (transaction) => {
+      const newUser = await UserModel.create(
+        { username, email, password: hashedPassword, role },
+        { transaction }
+      );
+      // Creación automática del perfil 
+      await ProfileModel.create(
+        {
+          user_id: newUser.id,
+          employee_number: profile.employee_number,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          phone: profile.phone || null,
+        },
+        { transaction }
+      );
+      return newUser;
+    });
 
-export const getMyProjects = async (req, res) => {
-    // TODO: 1. Listar los projects cuyo leader sea el usuario logueado, incluyendo sus technologies, y responder con código 200 y los projects.
-    try {
-        const { id } = req.params;
-    
-        const {
-          technologies,
-          code,
-          name,
-          description,
-          status,
-          start_date,
-          budget,
-          leader_id,
-        } = req.body;
-    
-        const project = await ProjectModel.findByPk(id);
-    
-        if (!project) {
-          return res.status(404).json({
-            msg: "Proyecto no encontrado",
-          });
-        }
-    
-        await project.update({
-          code,
-          name,
-          description,
-          status,
-          start_date,
-          budget,
-          leader_id,
-        });
-    
-        if (technologies !== undefined) {
-          await ProjectTechnologyModel.destroy({
-            where: {
-              project_id: id,
-            },
-          });
-    
-          if (technologies.length > 0) {
-            await ProjectTechnologyModel.bulkCreate(
-              technologies.map((technology_id) => ({
-                project_id: id,
-                technology_id,
-              }))
-            );
-          }
-        }
-    
-        const updatedProject = await ProjectModel.findByPk(id, {
-          include: [
-            {
-              model: UserModel,
-              as: "leader",
-              attributes: {
-                exclude: ["password"],
-              },
-            },
-            {
-              model: TechnologyModel,
-              as: "technologies",
-              through: {
-                attributes: [],
-              },
-            },
-          ],
-        });
-    
-        return res.status(200).json(updatedProject);
-      } catch (error) {
-        console.log(error);
-        return res.status(500).json({ msg: "Error interno del servidor" });
-      }
-
-    };
-
-export const updateProject = async (req, res) => {
-  try {
-    // TODO: 1. Actualizar el project con los datos recibidos.
-    // TODO: 2. Reemplazar sus technologies si vienen en el body.
-    // TODO: 3. Responder con código 200 y el project actualizado, incluyendo su leader y sus technologies.
-    const { id } = req.params;
-
-    const project = await ProjectModel.findByPk(id);
-
-    if (!project) {
-      return res.status(404).json({
-        msg: "Proyecto no encontrado",
-      });
-    }
-
-    await project.destroy();
-
-    return res.status(204).send();
+    // TODO: 3. Responder con código 201, un mensaje de éxito y devolver el usuario sin la password.
+    const created = await UserModel.findByPk(user.id, {
+      attributes: { exclude: ["password"] },
+      include: [{ model: ProfileModel, as: "profile" }],
+    });
+    return res.status(201).json({ msg: "Usuario registrado exitosamente", data: created });
   } catch (error) {
-    console.log(error);
+    if (error instanceof UniqueConstraintError) {
+      return res.status(400).json({ msg: "Usuario, email o número de empleado ya registrado" });
+    }
+    console.error("Error en register:", error);
     return res.status(500).json({ msg: "Error interno del servidor" });
   }
+};
+
+export const login = async (req, res) => {
+  try {
+    // TODO: 1. Buscar el user por email y comparar la password (comparePassword).
+    const { email, password } = req.body;
+    const user = await UserModel.findOne({ where: { email } });
+    // ? Considerar qué mensaje devolver ante credenciales inválidas.
+    if (!user || !(await comparePassword(password, user.password))) {
+      return res.status(401).json({ msg: "Credenciales inválidas" });
+    }
+
+    // TODO: 2. Firmar un JWT con el id y el role del user (signToken).
+    const token = signToken({ id: user.id, role: user.role });
+
+    // TODO: 3. Guardar el token en una cookie httpOnly llamada "token", responder con código 200 y un mensaje de éxito.
+    res.cookie("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 1000,
+    });
+    return res.status(200).json({ msg: "Inicio de sesión exitoso" });
+  } catch (error) {
+    console.error("Error en login:", error);
+    return res.status(500).json({ msg: "Error interno del servidor" });
+  }
+};
+
+export const logout = async (_req, res) => {
+    // TODO: 1. Eliminar la cookie "token" y responder con código 204 sin devolver ningun mensaje.
+  res.clearCookie("token", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
+  return res.status(204).send();
 };
