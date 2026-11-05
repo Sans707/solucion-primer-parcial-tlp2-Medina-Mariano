@@ -1,97 +1,43 @@
-# Primer Parcial – Sistema de Gestión de Proyectos de Software
+# Sistema de Gestión de Proyectos de Software
 
-API REST creada con Node.js, Express, Sequelize y MySQL. Los archivos marcados como **ARCHIVO BASE: no modificar** se mantienen intactos. En los archivos a completar se conservaron los comentarios originales del examen.
+API REST desarrollada con **Node.js, Express, Sequelize y MySQL** para administrar usuarios, proyectos y tecnologías.
 
-## 1. Instalación y configuración
+## Instalación
 
-1. Instalar **Node.js** y tener un servidor **MySQL** disponible.
-2. Abrir una terminal en la carpeta `primer-parcial-parte-practica` y ejecutar `npm install`.
-3. Crear una base de datos MySQL vacía llamada `gestion_proyectos` (o usar el nombre que coloques en `DB_NAME`). Por ejemplo, con MySQL: `CREATE DATABASE gestion_proyectos;`.
-4. Copiar `.env.example` a `.env` y configurar las variables:
+1. Instalar dependencias con `npm install`.
+2. Crear la base de datos `gestion_proyectos` en MySQL.
+3. Copiar `.env.example` a `.env` y configurar las variables.
+4. Iniciar el servidor con `npm run dev`.
+5. Importar la colección de Postman para probar los endpoints.
 
-```dotenv
-PORT=3005
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=gestion_proyectos
-DB_USER=root
-DB_PASSWORD=
-JWT_SECRET=usar_una_clave_larga_segura
-```
+## Funcionalidades
 
-5. Ejecutar `npm run dev` (o `npm start`). Sequelize intentará autenticar y sincronizar las tablas automáticamente.
-6. Importar `Primer-Parcial.postman_collection.json` en Postman. Esta colección apunta a `http://localhost:3005`, por lo que el valor de `PORT` debe coincidir.
-7. En Postman, crear primero un usuario mediante `POST /api/auth/register`, luego usar `POST /api/auth/login`. Para las rutas protegidas, conservar la cookie `token` de inicio de sesión. Para asociar tecnologías a proyectos, primero crearlas con un usuario administrador.
+- Registro, inicio y cierre de sesión.
+- Gestión de usuarios y tecnologías.
+- Creación, consulta, edición y eliminación de proyectos.
+- Autenticación mediante JWT y cookies.
+- Permisos según el rol del usuario.
 
-> El archivo `.env` contiene información local/privada y no se distribuye en el ZIP; se genera desde `.env.example`.
-
-## 2. Modelos y asociaciones
-
-- **User** (eliminación lógica: `paranoid: true`) → Profile: 1:1 con los alias `profile` y `user`.
-- **User** → Project: 1:N con `projects` y `leader`, mediante `leader_id`.
-- **Project** ↔ **Technology**: N:M mediante `ProjectTechnology`, con `project_id` y `technology_id` como **clave primaria compuesta**, sin timestamps.
-- Las filas intermedias de `ProjectTechnology` se eliminan en cascada cuando se elimina físicamente un proyecto o tecnología.
-
-**Aclaración de la consigna:** El comentario `TODO: 1. id` del archivo `project_technology.model.js` forma parte del material original, pero contradice las capturas de la consigna, que piden una **clave primaria compuesta formada por `project_id` y `technology_id`**. El comentario original se conservó y el modelo implementa lo indicado en las capturas.
-
-## 3. Endpoints
+## Endpoints
 
 | Método | Ruta | Acceso |
-| --- | --- | --- |
+|---|---|---|
 | POST | `/api/auth/register` | Público |
 | POST | `/api/auth/login` | Público |
-| POST | `/api/auth/logout` | Sesión iniciada |
+| POST | `/api/auth/logout` | Autenticado |
 | GET | `/api/users` | Administrador |
 | DELETE | `/api/users/:id` | Administrador |
 | POST | `/api/technologies` | Administrador |
-| GET | `/api/technologies` | Sesión iniciada |
+| GET | `/api/technologies` | Autenticado |
 | DELETE | `/api/technologies/:id` | Administrador |
-| POST | `/api/projects` | Sesión iniciada |
+| POST | `/api/projects` | Autenticado |
 | GET | `/api/projects` | Administrador |
-| GET | `/api/projects/my-projects` | Sesión iniciada |
-| PUT | `/api/projects/:id` | Líder del proyecto |
-| DELETE | `/api/projects/:id` | Líder del proyecto |
+| GET | `/api/projects/my-projects` | Autenticado |
+| PUT | `/api/projects/:id` | Líder |
+| DELETE | `/api/projects/:id` | Líder |
 
-## 4. Ejemplos de datos
+## Pruebas
 
-**Registro:**
+Los endpoints pueden probarse utilizando **Postman** con el servidor en `http://localhost:3005`.
 
-```json
-{
-  "username": "ejemplo123",
-  "email": "ejemplo@correo.com",
-  "password": "ClaveSegura123",
-  "role": "developer",
-  "profile": {
-    "employee_number": "EMP-0001",
-    "first_name": "Ana",
-    "last_name": "Perez",
-    "phone": "+5493704000000"
-  }
-}
-```
-
-**Proyecto:**
-
-```json
-{
-  "code": "PRJ-0001",
-  "name": "Sistema de gestion",
-  "description": "Proyecto de ejemplo para el examen.",
-  "status": "planning",
-  "start_date": "2026-11-05",
-  "budget": 12000.50,
-  "leader_id": 1,
-  "technologies": [1, 2]
-}
-```
-
-**Formatos asumidos:** Los enunciados mencionan un formato específico para `employee_number` y `code`, pero no muestran la expresión regular. Se utilizaron `EMP-0001` a `EMP-999999` y `PRJ-0001` a `PRJ-999999`, respectivamente. Se pueden adaptar si el docente indica otro patrón.
-
-## 5. Comprobación
-
-- Revisar que MySQL esté activo y las variables de `.env` sean correctas.
-- Verificar con Postman el registro, el login, el logout, las consultas, la creación/edición/eliminación de proyectos y los permisos de administrador/líder.
-- No incluir contraseñas en el JSON del usuario registrado ni enviar el JWT en el cuerpo de la respuesta: se gestiona en cookie `httpOnly`.
-
-**Nota:** La entrega conserva exactamente los archivos identificados como `ARCHIVO BASE: no modificar`, mantiene todos los comentarios originales en los archivos a completar, y no contiene `node_modules`, `.git` ni `.env` para evitar incluir dependencias pesadas, historial o secretos.
+El archivo `.env` no debe subirse a GitHub porque contiene información privada.
